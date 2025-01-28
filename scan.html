@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scan Barcode</title>
+    <link rel="stylesheet" href="css/scan.css">
+    <script src="https://unpkg.com/html5-qrcode/minified/html5-qrcode.min.js"></script>
+</head>
+
+
+<body>
+    <header>
+        <nav>
+            <input type="checkbox" id="sidebar-active">
+            <label for="sidebar-active" class="open-sidebar-button">
+                <svg xmlns="http://www.w3.org/2000/svg" height="32" viewBox="0 -960 960 960" width="32">
+                    <path d="M120-240v-80h720v80H120Zm0-200v-80h720v80H120Zm0-200v-80h720v80H120Z" />
+                </svg>
+            </label>
+            <label id="overlay" for="sidebar-active"></label>
+            <div class="links-container">
+                <label for="sidebar-active" class="close-sidebar-button">
+                    <svg xmlns="http://www.w3.org/2000/svg" height="32" viewBox="0 -960 960 960" width="32">
+                        <path
+                            d="m256-200-56-56 224-224-224-224 56-56 224 224 224-224 56 56-224 224 224 224-56 56-224-224-224 224Z" />
+                    </svg>
+                </label>
+                <a class="home-link" href="index.html">Generate barcode</a>
+                <a href="scan.html">Scan Barcode</a>
+                <a href="database.html">DataBase</a>
+                <a href="Tag.html">Tags Location</a>
+
+            </div>
+        </nav>
+    </header>
+
+    <main>
+        <div id="camera-modal" class="modal" style="display: none;">
+            <div class="modal-content">
+                <span class="close-btn" id="close-modal">&times;</span>
+                <h3>Scan Barcode/QR Code</h3>
+                <div id="qr-reader-modal" style="width: 300px; margin: 10px auto;"></div>
+                <p id="qr-modal-results" style="margin-top: 10px; color: #8F0524; text-align: center;"></p>
+            </div>
+        </div>
+        <button id="scan-barcode-btn">Scan Barcode/QR Code</button>
+        <input id="scan-input" type="text" placeholder="Scanned data will appear here" />
+
+        <div id="qr-reader" style="width: 300px; margin-top: 10px; display: none;"></div>
+        <div id="qr-reader-results" style="margin-top: 10px;"></div>
+
+
+        <input type="file" id="scanner-input" accept="image/*" style="display: none;" capture="environment">
+
+        <div class="scanner-container">
+            <h2>Scan Barcode</h2>
+            <label for="barcode-input">Scan or Enter Barcode ID:</label>
+            <input type="text" id="barcode-input" placeholder="Scan barcode here..." />
+            <button id="fetch-data">Fetch Data</button>
+        </div>
+        <div class="result-container" id="result-container" style="display: none;">
+            <h3>Barcode Details</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Material ID</th>
+                        <th>Material Name</th>
+                        <th>Quantity</th>
+                        <th>unit</th>
+                        <th>Expiry Date</th>
+                        <th>Supplier Details</th>
+                        <th>Category</th>
+                        <th>Batch</th>
+                        <th>Cost Per Unit</th>
+                        <th>Tag Name</th>
+                        <th>Time Stamp</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="result-table-body">
+                </tbody>
+            </table>
+        </div>
+
+        <div class="slider-container">
+            <div style="display: flex; justify-content: center; gap: 1rem; margin-bottom: 1rem;">
+                <h2>Edit Quantity</h2>
+                <button id="show-add-form"
+                    style="padding: 0.75rem; background-color: var(--primary-color); color: var(--secondary-color); border: none; border-radius: 5px; cursor: pointer;">
+                    Add Quantity
+                </button>
+                <button id="show-deduct-form"
+                    style="padding: 0.75rem; background-color: var(--primary-color); color: var(--secondary-color); border: none; border-radius: 5px; cursor: pointer;">
+                    Deduct Quantity
+                </button>
+            </div>
+
+            <div style="display: flex; gap: 2rem; overflow-x: auto; padding: 1rem;">
+                <!-- Add Quantity Form -->
+                <div class="slider-block"
+                    style="flex: 0 0 95%; background: var(--secondary-color); padding: 1rem; border-radius: 5px;">
+                    <h3>Add Quantity</h3>
+                    <form id="add-quantity-form">
+                        <label for="add-barcode">Barcode ID:</label>
+                        <input type="text" id="add-barcode" placeholder="Enter barcode ID" required>
+                        <label for="add-quantity">Quantity to Add:</label>
+                        <input type="number" id="add-quantity" placeholder="Enter quantity to add" required>
+                        <button type="submit">Add Quantity</button>
+                    </form>
+                </div>
+
+                <!-- Deduct Quantity Form -->
+                <div class="slider-block"
+                    style="flex: 0 0 95%; background: var(--secondary-color); padding: 1rem; border-radius: 5px;">
+                    <h3>Deduct Quantity</h3>
+                    <form id="deduct-quantity-form">
+                        <label for="deduct-barcode">Barcode ID:</label>
+                        <input type="text" id="deduct-barcode" placeholder="Enter barcode ID" required>
+                        <label for="deduct-quantity">Quantity to Deduct:</label>
+                        <input type="number" id="deduct-quantity" placeholder="Enter quantity to deduct" required>
+                        <button type="submit">Deduct Quantity</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+
+    </main>
+
+
+
+    <!-- this is the javascript code-->
+
+    <script>
+        const barcodeInput = document.getElementById('barcode-input');
+        const fetchDataButton = document.getElementById('fetch-data');
+        const resultContainer = document.getElementById('result-container');
+        const resultTableBody = document.getElementById('result-table-body');
+
+        // Fetch the database stored in localStorage (or modify as necessary to fetch from the real DB)
+        const fetchDatabase = () => {
+            const database = JSON.parse(localStorage.getItem('barcodeDatabase')) || [];
+            return database;
+        };
+
+        // Fetch the data of a specific barcode
+        const fetchBarcodeData = (barcode) => {
+            const database = fetchDatabase();
+            return database.find(entry => entry.barcode === barcode);
+        };
+
+        // Display the result
+        const displayResult = (data) => {
+            if (!data) {
+                alert('No data found for this barcode.');
+                barcodeInput.value = '';
+                return;
+            }
+
+            resultTableBody.innerHTML = ` 
+                <tr>
+                    <td>${data.materialId}</td>
+                    <td>${data.materialName}</td>
+                    <td>${data.quantity}</td>
+                    <td>${data.unit}</td>
+                    <td>${data.expiryDate}</td>
+                    <td>${data.supplierDetails}</td>
+                    <td>${data.category}</td>
+                    <td>${data.batch}</td>
+                    <td>${data.costPerUnit}</td>
+                    <td><a href="Tag.html?tagName=${data.tagName}">${data.tagName}</a></td>
+                    <td>${new Date(data.timestamp).toLocaleString()}</td>
+                </tr>
+            `;
+
+
+
+
+
+
+            // sfddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+
+
+
+
+
+
+
+
+            resultContainer.style.display = 'block';
+        };
+
+        fetchDataButton.addEventListener('click', async () => {
+            const barcode = barcodeInput.value.trim();
+
+            if (!barcode) {
+                alert('Please enter or scan a barcode.');
+                return;
+            }
+
+            const data = fetchBarcodeData(barcode);
+            displayResult(data);
+        });
+
+        // Automatically trigger fetch when Enter is pressed (useful for barcode scanners)
+        barcodeInput.addEventListener('keypress', (event) => {
+            if (event.key === 'Enter') {
+                fetchDataButton.click();
+            }
+        });
+
+
+
+
+
+
+        // Update database with added quantity
+        document.getElementById('add-quantity-form').addEventListener('submit', (event) => {
+            event.preventDefault();
+
+            const barcode = document.getElementById('add-barcode').value.trim();
+            const quantityToAdd = parseInt(document.getElementById('add-quantity').value.trim(), 10);
+
+            if (!barcode || isNaN(quantityToAdd) || quantityToAdd <= 0) {
+                alert('Please provide valid input.');
+                return;
+            }
+
+            const database = fetchDatabase();
+            const entry = database.find(item => item.barcode === barcode);
+
+            if (entry) {
+                entry.quantity = Number(entry.quantity) + Number(quantityToAdd);
+                localStorage.setItem('barcodeDatabase', JSON.stringify(database));
+                alert('Quantity successfully added.');
+            } else {
+                alert('No entry found for this barcode.');
+            }
+
+            event.target.reset();
+        });
+
+        // Update database with deducted quantity
+        document.getElementById('deduct-quantity-form').addEventListener('submit', (event) => {
+            event.preventDefault();
+
+            const barcode = document.getElementById('deduct-barcode').value.trim();
+            const quantityToDeduct = parseInt(document.getElementById('deduct-quantity').value.trim(), 10);
+
+            if (!barcode || isNaN(quantityToDeduct) || quantityToDeduct <= 0) {
+                alert('Please provide valid input.');
+                return;
+            }
+
+            const database = fetchDatabase();
+            const entry = database.find(item => item.barcode === barcode);
+
+            if (entry) {
+                if (entry.quantity >= quantityToDeduct) {
+                    entry.quantity -= quantityToDeduct;
+                    localStorage.setItem('barcodeDatabase', JSON.stringify(database));
+                    alert('Quantity successfully deducted.');
+                } else {
+                    alert('Insufficient quantity to deduct.');
+                }
+            } else {
+                alert('No entry found for this barcode.');
+            }
+
+            event.target.reset();
+        });
+
+        // this is ------------------------------------------------------------------------------
+
+
+        // Update database with added quantity
+        document.getElementById('add-quantity-form').addEventListener('submit', (event) => {
+            event.preventDefault();
+
+            const barcode = document.getElementById('add-barcode').value.trim();
+            const quantityToAdd = parseInt(document.getElementById('add-quantity').value.trim(), 10);
+
+            if (!barcode || isNaN(quantityToAdd) || quantityToAdd <= 0) {
+                alert('Please provide valid input.');
+                return;
+            }
+
+            const database = fetchDatabase();
+            const entry = database.find(item => item.barcode === barcode);
+
+            if (entry) {
+                entry.quantity = Number(entry.quantity) + Number(quantityToAdd); // Ensure both are numbers before adding
+                localStorage.setItem('barcodeDatabase', JSON.stringify(database));
+                alert('Quantity successfully added.');
+
+                // Update the result table to show the new quantity
+                displayResult(entry);
+            } else {
+                alert('No entry found for this barcode.');
+            }
+
+            event.target.reset();
+        });
+
+        // Update database with deducted quantity
+        document.getElementById('deduct-quantity-form').addEventListener('submit', (event) => {
+            event.preventDefault();
+
+            const barcode = document.getElementById('deduct-barcode').value.trim();
+            const quantityToDeduct = parseInt(document.getElementById('deduct-quantity').value.trim(), 10);
+
+            if (!barcode || isNaN(quantityToDeduct) || quantityToDeduct <= 0) {
+                alert('Please provide valid input.');
+                return;
+            }
+
+            const database = fetchDatabase();
+            const entry = database.find(item => item.barcode === barcode);
+
+            if (entry) {
+                if (entry.quantity >= quantityToDeduct) {
+                    entry.quantity = Number(entry.quantity) - quantityToDeduct; // Ensure both are numbers before subtracting
+                    localStorage.setItem('barcodeDatabase', JSON.stringify(database));
+                    alert('Quantity successfully deducted.');
+                    // Update the result table to show the new quantity
+                    displayResult(entry);
+                } else {
+                    alert('Insufficient quantity to deduct.');
+                }
+            } else {
+                alert('No entry found for this barcode.');
+            }
+
+            event.target.reset();
+        });
+
+        const addForm = document.querySelector('#add-quantity-form').parentElement;
+        const deductForm = document.querySelector('#deduct-quantity-form').parentElement;
+
+        const showAddFormButton = document.getElementById('show-add-form');
+        const showDeductFormButton = document.getElementById('show-deduct-form');
+
+        // Show Add Quantity form and hide Deduct Quantity form
+        showAddFormButton.addEventListener('click', () => {
+            addForm.style.display = 'block';
+            deductForm.style.display = 'none';
+        });
+
+        // Show Deduct Quantity form and hide Add Quantity form
+        showDeductFormButton.addEventListener('click', () => {
+            deductForm.style.display = 'block';
+            addForm.style.display = 'none';
+        });
+
+        // Optionally, display the "Add Quantity" form by default
+        addForm.style.display = 'block';
+
+        // Get references to the form elements
+        const barcodeForm = document.getElementById('barcode-form');
+
+        const productIdInput = document.getElementById('product-id');
+        const productNameInput = document.getElementById('product-name');
+        const addedQuantityInput = document.getElementById('added-quantity');
+        const deductedQuantityInput = document.getElementById('deducted-quantity');
+        const amountDeductedInput = document.getElementById('amount-deducted');
+        const message = document.getElementById('message');
+
+        // Function to get stored data from localStorage
+        const getStoredData = () => {
+            return JSON.parse(localStorage.getItem('barcodeData')) || [];
+        };
+
+        // Function to save data to localStorage
+        const saveDataToStorage = (data) => {
+            localStorage.setItem('barcodeData', JSON.stringify(data));
+        };
+
+        // Handle form submission
+        barcodeForm.addEventListener('submit', (event) => {
+            event.preventDefault();
+
+            const barcode = barcodeInput.value.trim();
+            const productId = productIdInput.value.trim();
+            const productName = productNameInput.value.trim();
+            const addedQuantity = parseInt(addedQuantityInput.value, 10);
+            const deductedQuantity = parseInt(deductedQuantityInput.value, 10);
+            const amountDeducted = parseFloat(amountDeductedInput.value);
+
+            if (barcode && productId && productName && addedQuantity >= 0 && deductedQuantity >= 0 && amountDeducted >= 0) {
+                // Get the current data from localStorage
+                let data = getStoredData();
+
+                // Create a new entry for this barcode scan
+                const newEntry = {
+                    barcode: barcode,
+                    productId: productId,
+                    productName: productName,
+                    addedQuantity: addedQuantity,
+                    deductedQuantity: deductedQuantity,
+                    amountDeducted: amountDeducted,
+                    timestamp: new Date().toISOString() // Store the current timestamp
+                };
+
+                // Add the new entry to the existing data array
+                data.push(newEntry);
+
+                // Save the updated data back to localStorage
+                saveDataToStorage(data);
+
+                // Display success message
+                message.textContent = 'Barcode data saved successfully!';
+                message.style.color = 'green';
+
+                // Clear the form after submission
+                barcodeForm.reset();
+            } else {
+                // Display error message if validation fails
+                message.textContent = 'Please fill in all fields correctly.';
+                message.style.color = 'red';
+            }
+        });
+
+
+
+
+
+
+        // Add this updated code to your existing <script> section:
+
+        const scanButton = document.getElementById('scan-button');
+        const videoElement = document.createElement('video'); // Create a video element to display the camera feed
+        videoElement.style.width = '100%';
+        videoElement.style.maxWidth = '400px';
+        videoElement.style.border = '1px solid black';
+        videoElement.style.marginTop = '1rem';
+
+        // Function to start the camera
+        const startCamera = async () => {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+                videoElement.srcObject = stream;
+                videoElement.play();
+            } catch (error) {
+                alert('Unable to access the camera. Please allow camera permissions.');
+                console.error('Camera Error:', error);
+            }
+        };
+
+        // Function to scan barcode/QR code using jsQR library
+        const scanCode = () => {
+            const canvas = document.createElement('canvas'); // Create a canvas to capture frames from the video
+            const context = canvas.getContext('2d');
+
+            const scanLoop = () => {
+                canvas.width = videoElement.videoWidth;
+                canvas.height = videoElement.videoHeight;
+                context.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
+
+                // Decode QR/Barcode
+                const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+                const code = jsQR(imageData.data, canvas.width, canvas.height);
+
+                if (code) {
+                    alert(`Scanned Code: ${code.data}`);
+                    barcodeInput.value = code.data; // Fill the barcode input
+                    fetchDataButton.click(); // Fetch data automatically
+                    stopCamera();
+                } else {
+                    requestAnimationFrame(scanLoop); // Continue scanning
+                }
+            };
+
+            scanLoop();
+        };
+
+        // Function to stop the camera
+        const stopCamera = () => {
+            const stream = videoElement.srcObject;
+            if (stream) {
+                const tracks = stream.getTracks();
+                tracks.forEach((track) => track.stop());
+            }
+            videoElement.remove(); // Remove the video element after stopping
+        };
+
+        // Add event listener to the Scan button
+        scanButton.addEventListener('click', () => {
+            if (!videoElement.parentElement) {
+                scanButton.insertAdjacentElement('afterend', videoElement); // Add the video element below the button
+            }
+            startCamera();
+            scanCode();
+        });
+
+
+
+
+
+
+
+        // The scan button
+        const scanInput = document.getElementById("scan-input"); // The input field for barcode scanning
+        const qrReaderDiv = document.getElementById("qr-reader"); // QR Reader container
+
+        scanButton.addEventListener("click", function () {
+            if (qrReaderDiv.style.display === "none") {
+                qrReaderDiv.style.display = "block";
+
+                // Initialize the QR/Barcode reader
+                const html5QrCode = new Html5Qrcode("qr-reader");
+                html5QrCode
+                    .start(
+                        { facingMode: "environment" }, // Use the rear camera
+                        {
+                            fps: 10, // Scanning frequency
+                            qrbox: { width: 250, height: 250 }, // Scanning area
+                        },
+                        (decodedText, decodedResult) => {
+                            // Callback for successful scan
+                            console.log(`Decoded Text: ${decodedText}`);
+                            scanInput.value = decodedText; // Paste the scanned data into the input field
+                            html5QrCode.stop(); // Stop the scanner after success
+                            qrReaderDiv.style.display = "none"; // Hide the scanner
+                        },
+                        (errorMessage) => {
+                            // Handle scanning errors (optional)
+                            console.log(`Scanning error: ${errorMessage}`);
+                        }
+                    )
+                    .catch((err) => {
+                        console.error(`Error initializing QR Reader: ${err}`);
+                    });
+            } else {
+                qrReaderDiv.style.display = "none"; // Toggle scanner visibility
+            }
+        });
+
+
+
+
+
+        document.addEventListener("DOMContentLoaded", () => {
+            const scanButton = document.getElementById("scan-barcode-btn");
+            const scanInput = document.getElementById("scan-input");
+            const qrReaderDiv = document.getElementById("qr-reader");
+            const qrResults = document.getElementById("qr-reader-results");
+
+            let html5QrCode;
+
+            scanButton.addEventListener("click", () => {
+                // Toggle the QR reader visibility
+                if (qrReaderDiv.style.display === "none" || !html5QrCode) {
+                    qrReaderDiv.style.display = "block";
+
+                    // Initialize QR Code Scanner
+                    html5QrCode = new Html5Qrcode("qr-reader");
+
+                    html5QrCode
+                        .start(
+                            { facingMode: "environment" }, // Rear camera
+                            {
+                                fps: 10, // Scanning frequency
+                                qrbox: { width: 250, height: 250 }, // Scanning area size
+                            },
+                            (decodedText) => {
+                                // On successful scan
+                                scanInput.value = decodedText; // Paste data into input field
+                                qrResults.textContent = `Scanned: ${decodedText}`;
+                                console.log(`Scanned result: ${decodedText}`);
+                                html5QrCode.stop(); // Stop the scanner
+                                qrReaderDiv.style.display = "none"; // Hide the scanner UI
+                            },
+                            (errorMessage) => {
+                                // Handle errors during scanning
+                                qrResults.textContent = `Scanning... (Errors may appear in console)`;
+                                console.log(errorMessage);
+                            }
+                        )
+                        .catch((err) => {
+                            console.error("Failed to start camera:", err);
+                            qrResults.textContent = `Error: Unable to access camera. Check permissions.`;
+                        });
+                } else {
+                    // Stop and hide the scanner if already active
+                    html5QrCode.stop().then(() => {
+                        qrReaderDiv.style.display = "none";
+                    });
+                }
+            });
+        });
+
+
+
+
+        document.addEventListener("DOMContentLoaded", () => {
+            const scanButton = document.getElementById("scan-barcode-btn");
+            const scanInput = document.getElementById("scan-input");
+            const modal = document.getElementById("camera-modal");
+            const closeModalBtn = document.getElementById("close-modal");
+            const qrReaderModalDiv = document.getElementById("qr-reader-modal");
+            const qrModalResults = document.getElementById("qr-modal-results");
+
+            let html5QrCode;
+
+            // Open modal and start QR Code scanner
+            scanButton.addEventListener("click", () => {
+                modal.style.display = "block";
+
+                // Initialize QR Code Scanner
+                html5QrCode = new Html5Qrcode("qr-reader-modal");
+
+                html5QrCode
+                    .start(
+                        { facingMode: "environment" },
+                        {
+                            fps: 10,
+                            qrbox: { width: 250, height: 250 },
+                        },
+                        (decodedText) => {
+                            // On successful scan
+                            scanInput.value = decodedText;
+                            qrModalResults.textContent = `Scanned: ${decodedText}`;
+                            console.log(`Scanned result: ${decodedText}`);
+                            closeModal(); // Close modal on success
+                        },
+                        (errorMessage) => {
+                            qrModalResults.textContent = "Scanning...";
+                            console.log(errorMessage); // Handle scanning errors
+                        }
+                    )
+                    .catch((err) => {
+                        console.error("Failed to start QR scanner:", err);
+                        qrModalResults.textContent = "Error: Unable to access camera.";
+                    });
+            });
+
+            // Close modal and stop QR Code scanner
+            function closeModal() {
+                modal.style.display = "none";
+                if (html5QrCode) {
+                    html5QrCode.stop().then(() => {
+                        html5QrCode = null;
+                    });
+                }
+            }
+
+            // Close modal on click of close button
+            closeModalBtn.addEventListener("click", closeModal);
+
+            // Close modal on clicking outside the modal content
+            window.addEventListener("click", (event) => {
+                if (event.target === modal) {
+                    closeModal();
+                }
+            });
+        });
+
+
+    </script>
+
+    <!-- Javascript Ends -->
+</body>
+
+</html>
