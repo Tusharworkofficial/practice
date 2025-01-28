@@ -419,39 +419,6 @@
 
 
 
-        document.getElementById('scan-button').addEventListener('click', () => {
-            // Trigger the file input click when the scan button is clicked
-            document.getElementById('scanner-input').click();
-        });
-
-        document.getElementById('scanner-input').addEventListener('change', (event) => {
-            const file = event.target.files[0];
-
-            if (file) {
-                const reader = new FileReader();
-
-                reader.onload = () => {
-                    const image = new Image();
-                    image.onload = () => {
-                        // Using jsQR library to decode the QR/Barcode
-                        const qrCode = jsQR(image, image.width, image.height);
-
-                        if (qrCode) {
-                            // Automatically fill the barcode input field with scanned value
-                            barcodeInput.value = qrCode.data;
-                            // Trigger the fetch to get the data
-                            fetchDataButton.click();
-                        } else {
-                            alert('No valid barcode/QR code detected!');
-                        }
-                    };
-
-                    image.src = reader.result;
-                };
-
-                reader.readAsDataURL(file);
-            }
-        });
 
 
 
